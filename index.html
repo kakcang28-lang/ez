@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>EduTrack วิทยาลัย - ระบบติดตามสถานะอาจารย์</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Prompt', sans-serif;
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(20px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .animate-slide-up {
+      animation: slideUp 0.25s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-700">
+  <!-- Mobile App Container -->
+  <div class="max-w-md mx-auto min-h-screen bg-slate-50 shadow-2xl relative flex flex-col border-x border-slate-200">
+    
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-indigo-700 via-indigo-600 to-blue-600 text-white px-5 pt-6 pb-5 rounded-b-3xl shadow-md sticky top-0 z-20">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-xl shadow-inner">
+            <i class="fa-solid fa-location-dot"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold tracking-tight leading-tight">EduTrack วิทยาลัย</h1>
+            <p class="text-xs text-indigo-100 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              อัปเดตสถานะเรียลไทม์
+            </p>
+          </div>
+        </div>
+        <button onclick="openInfoModal()" class="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center transition">
+          <i class="fa-solid fa-circle-info text-sm"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 px-4 pt-4 pb-24 overflow-y-auto">
+      
+      <!-- TAB 1: SEARCH & STATUS -->
+      <section id="tab-search" class="space-y-4">
+        <!-- Status Summary Pills -->
+        <div class="grid grid-cols-4 gap-2" id="status-summary">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Search Input -->
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+          <input
+            type="text"
+            id="search-input"
+            oninput="renderTeachers()"
+            placeholder="ค้นหาชื่ออาจารย์, สาขา, ห้องเรียน..."
+            class="w-full pl-10 pr-4 py-3 bg-white rounded-2xl border border-slate-200 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+          />
+        </div>
+
+        <!-- Department Filter -->
+        <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar" id="dept-filters">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Teacher Cards List -->
+        <div class="space-y-3" id="teacher-list">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
+      <!-- TAB 2: CAMPUS BUILDING MAP -->
+      <section id="tab-map" class="hidden space-y-4">
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <h2 class="font-semibold text-slate-800 text-base mb-1 flex items-center gap-2">
+            <i class="fa-solid fa-building text-indigo-600"></i> แผนผังอาคารเรียน
+          </h2>
+          <p class="text-xs text-slate-500 mb-3">เลือกอาคารเพื่อดูตำแหน่งอาจารย์ที่เช็กอินอยู่แต่ละชั้น</p>
+          <div class="grid grid-cols-2 gap-2" id="building-selector">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <div id="building-floors" class="space-y-3">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
+      <!-- TAB 3: TEACHER MODE (UPDATE STATUS) -->
+      <section id="tab-teacher" class="hidden space-y-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <span class="text-[11px] font-medium uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full">โหมดสำหรับอาจารย์</span>
+              <h2 class="font-bold text-slate-800 text-base mt-1">อัปเดตตำแหน่ง & สถานะ</h2>
+            </div>
+            <i class="fa-solid fa-user-tie text-2xl text-indigo-500"></i>
+          </div>
+
+          <!-- Select Teacher Account -->
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">เลือกบัญชีอาจารย์</label>
+            <select id="teacher-select" onchange="loadTeacherForm()" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <!-- Populated by JS -->
+            </select>
+          </div>
+
+          <!-- Quick Check-in Actions -->
+          <div class="grid grid-cols-2 gap-2.5">
+            <button type="button" onclick="simulateGPS()" class="flex items-center justify-center gap-2 py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-medium transition">
+              <i class="fa-solid fa-location-crosshairs"></i> เช็กอินด้วย GPS
+            </button>
+            <button type="button" onclick="simulateQR()" class="flex items-center justify-center gap-2 py-2.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-medium transition">
+              <i class="fa-solid fa-qrcode"></i> สแกน QR หน้าห้อง
+            </button>
+          </div>
+
+          <!-- Status Selector -->
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1.5">สถานะปัจจุบัน</label>
+            <div class="grid grid-cols-2 gap-2" id="status-radio-group">
+              <button type="button" data-status="available" onclick="selectStatus('available')" class="status-opt p-2.5 rounded-xl border text-xs font-medium flex items-center gap-2 transition">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> อยู่ห้องพักครู
+              </button>
+              <button type="button" data-status="teaching" onclick="selectStatus('teaching')" class="status-opt p-2.5 rounded-xl border text-xs font-medium flex items-center gap-2 transition">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> กำลังสอน
+              </button>
+              <button type="button" data-status="meeting" onclick="selectStatus('meeting')" class="status-opt p-2.5 rounded-xl border text-xs font-medium flex items-center gap-2 transition">
+                <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span> ติดประชุม
+              </button>
+              <button type="button" data-status="away" onclick="selectStatus('away')" class="status-opt p-2.5 rounded-xl border text-xs font-medium flex items-center gap-2 transition">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> ไม่อยู่ / ราชการ
+              </button>
+            </div>
+          </div>
+
+          <!-- Building & Room -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">อาคาร</label>
+              <select id="form-building" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+                <option value="อาคาร 1 (อำนวยการ)">อาคาร 1 (อำนวยการ)</option>
+                <option value="อาคาร 2 (คอมพิวเตอร์)">อาคาร 2 (คอมพิวเตอร์)</option>
+                <option value="อาคาร 3 (ช่างอุตสาหกรรม)">อาคาร 3 (ช่างอุตสาหกรรม)</option>
+                <option value="อาคาร 4 (บริหารธุรกิจ)">อาคาร 4 (บริหารธุรกิจ)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">ชั้น / ห้อง</label>
+              <input type="text" id="form-room" placeholder="เช่น ชั้น 2 ห้อง 204" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+            </div>
+          </div>
+
+          <!-- Note -->
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">หมายเหตุ / ข้อความถึงนักศึกษา</label>
+            <input type="text" id="form-note" placeholder="เช่น ว่างให้คำปรึกษาถึง 15.00 น." class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+          </div>
+
+          <button type="button" onclick="saveTeacherStatus()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-semibold rounded-xl shadow-md shadow-indigo-200 transition text-sm">
+            <i class="fa-solid fa-check mr-1.5"></i> บันทึกและอัปเดตสถานะ
+          </button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="fixed bottom-0 max-w-md w-full bg-white/95 backdrop-blur-md border-t border-slate-200 px-6 py-2.5 flex justify-between items-center z-30">
+      <button onclick="switchTab('search')" id="nav-search" class="nav-btn flex flex-col items-center gap-1 text-indigo-600">
+        <i class="fa-solid fa-users text-lg"></i>
+        <span class="text-[11px] font-medium">ค้นหาอาจารย์</span>
+      </button>
+      <button onclick="switchTab('map')" id="nav-map" class="nav-btn flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600">
+        <i class="fa-solid fa-map-location-dot text-lg"></i>
+        <span class="text-[11px] font-medium">แผนผังอาคาร</span>
+      </button>
+      <button onclick="switchTab('teacher')" id="nav-teacher" class="nav-btn flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600">
+        <i class="fa-solid fa-user-check text-lg"></i>
+        <span class="text-[11px] font-medium">อัปเดตสถานะ</span>
+      </button>
+    </nav>
+
+    <!-- Teacher Detail / Appointment Modal -->
+    <div id="detail-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs hidden items-end sm:items-center justify-center z-50 p-4">
+      <div class="bg-white w-full max-w-md rounded-3xl p-5 shadow-2xl space-y-4 animate-slide-up">
+        <div class="flex justify-between items-start">
+          <div class="flex items-center gap-3">
+            <img id="modal-avatar" src="" alt="avatar" class="w-14 h-14 rounded-2xl object-cover border border-slate-200" />
+            <div>
+              <h3 id="modal-name" class="font-bold text-slate-800 text-base"></h3>
+              <p id="modal-dept" class="text-xs text-slate-500"></p>
+              <span id="modal-badge" class="inline-block mt-1 text-[11px] px-2.5 py-0.5 rounded-full font-medium"></span>
+            </div>
+          </div>
+          <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="bg-slate-50 p-3.5 rounded-2xl space-y-2 text-xs text-slate-600">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-location-dot text-indigo-500 w-4"></i>
+            <span id="modal-location" class="font-medium text-slate-800"></span>
+          </div>
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-clock text-indigo-500 w-4"></i>
+            <span id="modal-updated"></span>
+          </div>
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-comment-dots text-indigo-500 w-4"></i>
+            <span id="modal-note"></span>
+          </div>
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-phone text-indigo-500 w-4"></i>
+            <span id="modal-phone"></span>
+          </div>
+        </div>
+
+        <!-- Quick Message / Appointment -->
+        <div class="space-y-2">
+          <label class="block text-xs font-semibold text-slate-700">ฝากข้อความ / ขอนัดพบอาจารย์</label>
+          <textarea id="appointment-msg" rows="2" placeholder="ระบุชื่อ-รหัสนักศึกษา และเรื่องที่ต้องการติดต่อ..." class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+          <button onclick="sendAppointment()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition">
+            <i class="fa-solid fa-paper-plane mr-1"></i> ส่งคำขอนัดพบ
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-4 py-2.5 rounded-full shadow-lg opacity-0 pointer-events-none transition-opacity duration-300 z-50 flex items-center gap-2">
+      <i class="fa-solid fa-circle-check text-emerald-400"></i>
+      <span id="toast-msg">อัปเดตข้อมูลสำเร็จ</span>
+    </div>
+
+  </div>
+
+  <script>
+    const STATUS_CONFIG = {
+      available: {
+        label: "อยู่ห้องพักครู",
+        badgeClass: "bg-emerald-100 text-emerald-700",
+        dotClass: "bg-emerald-500",
+        cardBorder: "border-l-4 border-l-emerald-500"
+      },
+      teaching: {
+        label: "กำลังสอน",
+        badgeClass: "bg-amber-100 text-amber-700",
+        dotClass: "bg-amber-500",
+        cardBorder: "border-l-4 border-l-amber-500"
+      },
+      meeting: {
+        label: "ติดประชุม",
+        badgeClass: "bg-purple-100 text-purple-700",
+        dotClass: "bg-purple-500",
+        cardBorder: "border-l-4 border-l-purple-500"
+      },
+      away: {
+        label: "ไม่อยู่ / ราชการ",
+        badgeClass: "bg-rose-100 text-rose-700",
+        dotClass: "bg-rose-500",
+        cardBorder: "border-l-4 border-l-rose-500"
+      }
+    };
+
+    let teachers = [
+      {
+        id: 1,
+        name: "อ.ดร.สมชาย ใจดี",
+        dept: "เทคโนโลยีสารสนเทศ",
+        status: "available",
+        building: "อาคาร 2 (คอมพิวเตอร์)",
+        floor: 2,
+        room: "ห้องพักครู IT 201",
+        note: "ว่างให้คำปรึกษาโปรเจกต์จบถึง 15.30 น.",
+        phone: "081-234-5678",
+        updatedAt: "5 นาทีที่แล้ว",
+        avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Somchai"
+      },
+      {
+        id: 2,
+        name: "อ.วิภาวรรณ รัตนากร",
+        dept: "การบัญชีและบริหาร",
+        status: "teaching",
+        building: "อาคาร 4 (บริหารธุรกิจ)",
+        floor: 3,
+        room: "ห้องเรียน 4302",
+        note: "สอนวิชาการบัญชีต้นทุน (ถึง 12.00 น.)",
+        phone: "089-876-5432",
+        updatedAt: "12 นาทีที่แล้ว",
+        avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Wipawan"
+      },
+      {
+        id: 3,
+        name: "อ.เกรียงไกร ช่างยนต์",
+        dept: "ช่างยนต์",
+        status: "available",
+        building: "อาคาร 3 (ช่างอุตสาหกรรม)",
+        floor: 1,
+        room: "โรงฝึกงานช่างยนต์ 1",
+        note: "ตรวจเช็กอุปกรณ์ฝึกปฏิบัติ",
+        phone: "086-555-4433",
+        updatedAt: "เมื่อสักครู่",
+        avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Kriangkrai"
+      },
+      {
+        id: 4,
+        name: "อ.ณัฐธิดา ศรีสุข",
+        dept: "เทคโนโลยีสารสนเทศ",
+        status: "meeting",
+        building: "อาคาร 1 (อำนวยการ)",
+        floor: 2,
+        room: "ห้องประชุม 1204",
+        note: "ประชุมคณะกรรมการหลักสูตร",
+        phone: "082-111-2233",
+        updatedAt: "25 นาทีที่แล้ว",
+        avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Natthida"
+      },
+      {
+        id: 5,
+        name: "อ.ประเสริฐ ไฟฟ้ากำลัง",
+        dept: "ช่างไฟฟ้า",
+        status: "away",
+        building: "อาคาร 3 (ช่างอุตสาหกรรม)",
+        floor: 2,
+        room: "ห้องพักครูไฟฟ้า",
+        note: "ไปราชการอบรมภายนอก กลับพรุ่งนี้",
+        phone: "084-999-8877",
+        updatedAt: "1 ชั่วโมงที่แล้ว",
+        avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Prasert"
+      }
+    ];
+
+    let selectedDept = "ทั้งหมด";
+    let selectedBuilding = "อาคาร 2 (คอมพิวเตอร์)";
+    let currentFormStatus = "available";
+    let activeModalTeacherId = null;
+
+    function init() {
+      renderStatusSummary();
+      renderDeptFilters();
+      renderTeachers();
+      renderBuildingSelector();
+      renderBuildingFloors();
+      populateTeacherSelect();
+    }
+
+    function renderStatusSummary() {
+      const counts = { available: 0, teaching: 0, meeting: 0, away: 0 };
+      teachers.forEach(t => counts[t.status]++);
+
+      const items = [
+        { key: "available", title: "อยู่ห้อง", color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
+        { key: "teaching", title: "สอนอยู่", color: "text-amber-600 bg-amber-50 border-amber-200" },
+        { key: "meeting", title: "ประชุม", color: "text-purple-600 bg-purple-50 border-purple-200" },
+        { key: "away", title: "ไม่อยู่", color: "text-rose-600 bg-rose-50 border-rose-200" }
+      ];
+
+      document.getElementById("status-summary").innerHTML = items.map(item => `
+        <div class="p-2 rounded-2xl border text-center ${item.color}">
+          <div class="text-lg font-bold leading-none">${counts[item.key]}</div>
+          <div class="text-[11px] font-medium mt-1">${item.title}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderDeptFilters() {
+      const depts = ["ทั้งหมด", ...new Set(teachers.map(t => t.dept))];
+      document.getElementById("dept-filters").innerHTML = depts.map(dept => {
+        const active = dept === selectedDept;
+        return `
+          <button onclick="setDept('${dept}')" class="px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition ${
+            active
+              ? "bg-indigo-600 text-white shadow-sm"
+              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+          }">
+            ${dept}
+          </button>
+        `;
+      }).join("");
+    }
+
+    function setDept(dept) {
+      selectedDept = dept;
+      renderDeptFilters();
+      renderTeachers();
+    }
+
+    function renderTeachers() {
+      const query = document.getElementById("search-input").value.toLowerCase().trim();
+      const filtered = teachers.filter(t => {
+        const matchDept = selectedDept === "ทั้งหมด" || t.dept === selectedDept;
+        const matchQuery =
+          t.name.toLowerCase().includes(query) ||
+          t.dept.toLowerCase().includes(query) ||
+          t.building.toLowerCase().includes(query) ||
+          t.room.toLowerCase().includes(query);
+        return matchDept && matchQuery;
+      });
+
+      const listEl = document.getElementById("teacher-list");
+      if (filtered.length === 0) {
+        listEl.innerHTML = `
+          <div class="text-center py-10 bg-white rounded-2xl border border-slate-200">
+            <i class="fa-solid fa-user-slash text-3xl text-slate-300 mb-2"></i>
+            <p class="text-sm text-slate-500">ไม่พบข้อมูลอาจารย์ที่ค้นหา</p>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = filtered.map(t => {
+        const cfg = STATUS_CONFIG[t.status];
+        return `
+          <div onclick="openDetailModal(${t.id})" class="bg-white p-4 rounded-2xl border border-slate-200 ${cfg.cardBorder} shadow-xs hover:shadow-md transition cursor-pointer">
+            <div class="flex items-start gap-3">
+              <img src="${t.avatar}" alt="${t.name}" class="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 shrink-0" />
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="font-bold text-slate-800 text-sm truncate">${t.name}</h3>
+                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${cfg.badgeClass}">
+                    ${cfg.label}
+                  </span>
+                </div>
+                <p class="text-xs text-slate-500 mt-0.5">${t.dept}</p>
+                <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <span class="text-indigo-600 font-medium truncate">
+                    <i class="fa-solid fa-location-dot mr-1"></i>${t.building} • ${t.room}
+                  </span>
+                  <span class="text-[11px] text-slate-400 shrink-0 ml-2">${t.updatedAt}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderBuildingSelector() {
+      const buildings = [
+        "อาคาร 1 (อำนวยการ)",
+        "อาคาร 2 (คอมพิวเตอร์)",
+        "อาคาร 3 (ช่างอุตสาหกรรม)",
+        "อาคาร 4 (บริหารธุรกิจ)"
+      ];
+
+      document.getElementById("building-selector").innerHTML = buildings.map(b => {
+        const active = b === selectedBuilding;
+        return `
+          <button onclick="selectBuilding('${b}')" class="p-2.5 rounded-xl border text-left text-xs font-medium transition ${
+            active
+              ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+              : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+          }">
+            <i class="fa-solid fa-building-columns mr-1.5 opacity-80"></i>${b}
+          </button>
+        `;
+      }).join("");
+    }
+
+    function selectBuilding(b) {
+      selectedBuilding = b;
+      renderBuildingSelector();
+      renderBuildingFloors();
+    }
+
+    function renderBuildingFloors() {
+      const floors = [3, 2, 1];
+      const inBuilding = teachers.filter(t => t.building === selectedBuilding && t.status !== "away");
+
+      document.getElementById("building-floors").innerHTML = floors.map(floor => {
+        const floorTeachers = inBuilding.filter(t => t.floor === floor);
+        return `
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+            <div class="flex items-center justify-between mb-2.5">
+              <span class="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg">ชั้น ${floor}</span>
+              <span class="text-xs text-slate-400">${floorTeachers.length} ท่าน</span>
+            </div>
+            ${
+              floorTeachers.length === 0
+                ? `<p class="text-xs text-slate-400 italic py-2">ไม่มีอาจารย์เช็กอินในชั้นนี้</p>`
+                : `<div class="space-y-2">
+                    ${floorTeachers.map(t => {
+                      const cfg = STATUS_CONFIG[t.status];
+                      return `
+                        <div onclick="openDetailModal(${t.id})" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-indigo-50/50 cursor-pointer transition">
+                          <div class="flex items-center gap-2.5">
+                            <span class="w-2.5 h-2.5 rounded-full ${cfg.dotClass}"></span>
+                            <div>
+                              <div class="text-xs font-semibold text-slate-800">${t.name}</div>
+                              <div class="text-[11px] text-slate-500">${t.room}</div>
+                            </div>
+                          </div>
+                          <span class="text-[10px] px-2 py-0.5 rounded-full font-medium ${cfg.badgeClass}">${cfg.label}</span>
+                        </div>
+                      `;
+                    }).join("")}
+                  </div>`
+            }
+          </div>
+        `;
+      }).join("");
+    }
+
+    function populateTeacherSelect() {
+      const select = document.getElementById("teacher-select");
+      select.innerHTML = teachers.map(t => `<option value="${t.id}">${t.name} (${t.dept})</option>`).join("");
+      loadTeacherForm();
+    }
+
+    function loadTeacherForm() {
+      const id = Number(document.getElementById("teacher-select").value);
+      const t = teachers.find(item => item.id === id);
+      if (!t) return;
+
+      selectStatus(t.status);
+      document.getElementById("form-building").value = t.building;
+      document.getElementById("form-room").value = t.room;
+      document.getElementById("form-note").value = t.note;
+    }
+
+    function selectStatus(status) {
+      currentFormStatus = status;
+      document.querySelectorAll(".status-opt").forEach(btn => {
+        const isMatch = btn.getAttribute("data-status") === status;
+        btn.className = `status-opt p-2.5 rounded-xl border text-xs font-medium flex items-center gap-2 transition ${
+          isMatch
+            ? "bg-indigo-50 border-indigo-500 text-indigo-700 ring-1 ring-indigo-500"
+            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+        }`;
+      });
+    }
+
+    function simulateGPS() {
+      document.getElementById("form-building").value = "อาคาร 2 (คอมพิวเตอร์)";
+      document.getElementById("form-room").value = "ชั้น 2 ห้องพักครู IT 201";
+      showToast("ระบุพิกัด GPS สำเร็จ: อาคาร 2 (คอมพิวเตอร์)");
+    }
+
+    function simulateQR() {
+      document.getElementById("form-building").value = "อาคาร 4 (บริหารธุรกิจ)";
+      document.getElementById("form-room").value = "ชั้น 3 ห้องเรียน 4305";
+      selectStatus("teaching");
+      showToast("สแกน QR หน้าห้อง 4305 สำเร็จ");
+    }
+
+    function saveTeacherStatus() {
+      const id = Number(document.getElementById("teacher-select").value);
+      const t = teachers.find(item => item.id === id);
+      if (!t) return;
+
+      const roomInput = document.getElementById("form-room").value.trim();
+      const floorMatch = roomInput.match(/ชั้น\s*(\d+)/);
+
+      t.status = currentFormStatus;
+      t.building = document.getElementById("form-building").value;
+      t.room = roomInput || "ห้องพักครู";
+      t.floor = floorMatch ? Number(floorMatch[1]) : 2;
+      t.note = document.getElementById("form-note").value.trim() || "-";
+      t.updatedAt = "เมื่อสักครู่";
+
+      renderStatusSummary();
+      renderTeachers();
+      renderBuildingFloors();
+      showToast(`อัปเดตสถานะของ ${t.name} เรียบร้อยแล้ว`);
+      switchTab("search");
+    }
+
+    function switchTab(tabName) {
+      ["search", "map", "teacher"].forEach(name => {
+        document.getElementById(`tab-${name}`).classList.toggle("hidden", name !== tabName);
+        const navBtn = document.getElementById(`nav-${name}`);
+        navBtn.className = `nav-btn flex flex-col items-center gap-1 ${
+          name === tabName ? "text-indigo-600" : "text-slate-400 hover:text-slate-600"
+        }`;
+      });
+    }
+
+    function openDetailModal(id) {
+      const t = teachers.find(item => item.id === id);
+      if (!t) return;
+      activeModalTeacherId = id;
+
+      const cfg = STATUS_CONFIG[t.status];
+      document.getElementById("modal-avatar").src = t.avatar;
+      document.getElementById("modal-name").textContent = t.name;
+      document.getElementById("modal-dept").textContent = t.dept;
+
+      const badge = document.getElementById("modal-badge");
+      badge.textContent = cfg.label;
+      badge.className = `inline-block mt-1 text-[11px] px-2.5 py-0.5 rounded-full font-medium ${cfg.badgeClass}`;
+
+      document.getElementById("modal-location").textContent = `${t.building} • ${t.room}`;
+      document.getElementById("modal-updated").textContent = `อัปเดตล่าสุด: ${t.updatedAt}`;
+      document.getElementById("modal-note").textContent = `หมายเหตุ: ${t.note}`;
+      document.getElementById("modal-phone").textContent = `เบอร์ติดต่อภายใน: ${t.phone}`;
+      document.getElementById("appointment-msg").value = "";
+
+      const modal = document.getElementById("detail-modal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeModal() {
+      const modal = document.getElementById("detail-modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function sendAppointment() {
+      const msg = document.getElementById("appointment-msg").value.trim();
+      if (!msg) {
+        showToast("กรุณากรอกข้อความก่อนส่ง");
+        return;
+      }
+      closeModal();
+      showToast("ส่งข้อความนัดพบไปยังอาจารย์แล้ว");
+    }
+
+    function openInfoModal() {
+      showToast("EduTrack v1.0 - ระบบติดตามสถานะอาจารย์ในวิทยาลัย");
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      document.getElementById("toast-msg").textContent = message;
+      toast.classList.remove("opacity-0");
+      setTimeout(() => {
+        toast.classList.add("opacity-0");
+      }, 2600);
+    }
+
+    init();
+  </script>
+</body>
+</html>
